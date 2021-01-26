@@ -128,14 +128,4 @@
 # runs the first time it is called and then it caches its result until it needs
 # to be updated.
 
-
-
-
-
-
-
-
-
-
-
-
+# End file ----------------------------------------------------------------
