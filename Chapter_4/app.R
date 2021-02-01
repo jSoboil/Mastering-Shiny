@@ -28,18 +28,48 @@ ui <- fluidPage(
  )
 )
 server <- function(input, output, session) {
+ x1 <- reactive(
+  rnorm(n = input$n1, mean = input$mean1, sd = input$sd1)
+  )
+ x2 <- reactive(
+  rnorm(n = input$n2, mean = input$mean2, sd = input$sd2)
+ )
+ 
  output$hist <- renderPlot({
-  x1 <- rnorm(n = input$n1, mean = input$mean1, sd = input$sd1)
-  x2 <- rnorm(n = input$n2, mean = input$mean2, sd = input$sd2)
-  
-  freqpoly(x1 = x1, x2 = x2, binwidth = input$binwidth, xlim = input$range)
+  freqpoly(x1(), x2(), binwidth = input$binwidth, xlim = input$range)
  }, res = 96)
  
  output$ttest <- renderText({
-  x1 <- rnorm(n = input$n1, mean = input$mean1, sd = input$sd1)
-  x2 <- rnorm(n = input$n2, mean = input$mean2, sd = input$sd2)
-  
-  t_test(x1, x2)
+  t_test(x1(), x2())
  })
 }
 shinyApp(ui, server)
+# This transformation yields the substantially simpler graph. This rewrite also makes 
+# the app much more efficient since it does much less computation. Now, when you change
+# the binwidth or range, only the plot changes, not the underlying data.
+
+# Modules allow you to extract out repeated code for reuse, while guaranteeing that 
+# it’s isolated from everything else in the app. Modules are an extremely useful and 
+# powerful technique for more complex apps.
+
+# You might be familiar with the “rule of three” of programming: whenever you copy and
+# paste something three times, you should figure out how to reduce the duplication 
+# (typically by writing a function). This is important because it reduces the amount of 
+# duplication in your code, which makes it easier to understand, and easier to update as your requirements change.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

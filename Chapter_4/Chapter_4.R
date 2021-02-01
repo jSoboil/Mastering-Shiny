@@ -341,29 +341,54 @@ server <- function(input, output, session) {
  })
 }
 
-### The reactive graph ------------------------------------------------------
+### Simplifying the graph ------------------------------------------------------
+# To create a reactive expression, we call reactive() and assign the results to a 
+# variable. To later use the expression, we call the variable like it’s a function.
+server <- function(input, output, session) {
+ x1 <- reactive(
+  rnorm(n = input$n1, mean = input$mean1, sd = input$sd1)
+  )
+ x2 <- reactive(
+  rnorm(n = input$n2, mean = input$mean2, sd = input$sd2)
+ )
+ 
+ output$hist <- renderPlot({
+  freqpoly(x1(), x2(), binwidth = input$binwidth, xlim = input$range)
+ }, res = 96)
+ 
+ output$ttest <- renderText({
+  t_test(x1(), x2())
+ })
+}
+# NB! Reactive expressions automatically cache their results, and only update when 
+# their inputs change.
 
+## Controlling the timing of evaluation ------------------------------------
+# We can increase the frequency of updates with a new function: reactiveTimer().
 
+### On click ----------------------------------------------------------------
+# The same problem can happen if someone is rapidly clicking buttons in your app and 
+# the computation you are doing is relatively expensive. It’s possible to create a big 
+# backlog of work for Shiny, and while it’s working on the backlog, it can’t respond 
+# to any new events. This leads to a poor user experience.
 
+# If this situation arises in your app, you might want to require the user to opt-in 
+# to performing the expensive calculation by requiring them to click a button. This is
+# a great use case for an actionButton().
 
+# We need eventReactive(), which has two arguments: the first argument specifies what 
+# to take a dependency on, and the second argument specifies what to compute. That 
+# allows this app to only compute x1() and x2() when simulate is clicked.
 
+# Observers ---------------------------------------------------------------
+# So far, we’ve focused on what’s happening inside the app. But sometimes you need to
+# reach outside of the app and cause side-effects to happen elsewhere in the world. 
+# This might be saving a file to a shared network drive, sending data to a web API, 
+# updating a database, or (most commonly) printing a debugging message to the console.
+# These actions don’t affect how your app looks, so you shouldn’t use an output and a 
+# render function. Instead you need to use an observer.
 
+# There are multiple ways to create an observer, and we’ll come back to them later in
+# Section 15.3.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# End file ----------------------------------------------------------------
