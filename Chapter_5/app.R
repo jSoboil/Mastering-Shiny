@@ -3,10 +3,15 @@ prod_codes <- setNames(products$code, products$title)
 
 ui <- fluidPage(
  fluidRow(
-  column(6, 
-         selectInput("code", "Product", choices = prod_codes)
-         )
- ),
+ column(8, 
+        selectInput("code", "Product", 
+                    choices = prod_codes,
+                    width = "100%"
+                    )
+        ),
+ column(2, 
+        selectInput("y", "Y axis", c("rate", "count")))
+),
  fluidRow(
   column(4, tableOutput("diag")),
   column(4, tableOutput("body_part")),
@@ -14,6 +19,12 @@ ui <- fluidPage(
  ),
  fluidRow(
   column(12, plotOutput("age_sex"))
+ ),
+fluidRow(
+ column(2, 
+        actionButton("story", "Tell me a story")
+        ),
+ column(10, textOutput("narrative"))
  )
 )
 server <- function(input, output, session) {
@@ -40,12 +51,25 @@ count_top <- function(df, var, n = 5) {
    mutate(rate = n.x / n.y * 1e4)
  })
  
- output$age_sex <- renderPlot({
-  summary() %>% 
+output$age_sex <- renderPlot({
+ if (input$y == "count") {
+  summary() %>%
    ggplot(aes(age, n.x, colour = sex)) +
-   geom_line() + 
+   geom_line() +
    labs(y = "Estimated number of injuries")
+  } else {
+   summary() %>%
+    ggplot(aes(age, rate, colour = sex)) +
+    geom_line(na.rm = TRUE) +
+    labs(y = "Injuries per 100,000 people")
+   }
  }, res = 96)
 
+  narrative_sample <- eventReactive(
+    list(input$story, selected()
+         ),
+    selected() %>% pull("narrative") %>% sample(size = 1, replace = FALSE)
+  )
+  output$narrative <- renderText(narrative_sample())
 }
 shinyApp(ui, server)

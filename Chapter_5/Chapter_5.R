@@ -206,25 +206,138 @@ output$location <- renderTable({
 # This makes the output more aesthetically pleasing because it reduces the amount of 
 # incidental variation.
 
-# Rate vs count -----------------------------------------------------------
+## Rate vs count -----------------------------------------------------------
 # So far, we’re displaying only a single plot, but we’d like to give the user the 
 # choice between visualising the number of injuries or the population-standardised 
 # rate.
 
+# First, we can add a control to the UI. Here we choose selectInput() because it 
+# makes states explicit, and it would be easy to add new states in the future.:
+fluidRow(
+ column(8, 
+        selectInput("code", "Product", 
+                    choices = setNames(products$code, products$title),
+                    width = "100%"
+                    )
+        ),
+ column(1, 
+        selectInput("y", "Y axis", c("rate", "count")))
+)
+# And then we condition on that inputs when generating the plot:
+output$age_sex <- renderPlot({
+ if (input$y == "count") {
+  summary() %>% 
+   ggplot(aes(age, n.x, colour = sex)) + 
+   geom_line() + 
+   labs(y = "Estimated number of injuries")
+ } else {
+  summary() %>% 
+   ggplot(aes(age, rate, colour = sex)) + 
+   geom_line(na.rm = TRUE) + 
+   labs(y = "Injuries per 100,000 people")
+  }
+ }, res = 96)
 
+## Narrative ---------------------------------------------------------------
+# Say you want to provide some way to access the narratives because they are so
+# interesting, and they give an informal way to cross-check the hypotheses you come
+# up with when looking at the plots. In the R code, you can sample multiple narratives
+# at once, but there’s no reason to do that in an app where you can explore 
+# interactively.
 
+# There are two parts to the solution. First we add a new row to the bottom of the UI.
+# You can use an action button to trigger a new story, and put the narrative in a
+# textOutput():
+fluidRow(
+ column(2, 
+        actionButton("story", "Tell me a story")
+        ),
+ column(10, textOutput("narrative"))
+)
+# We can then use eventReactive() to create a reactive that only updates when the 
+# button is clicked or the underlying data changes.
+narrative_sample <- eventReactive(
+ list(input$story, selected()),
+ selected() %>%
+  pull(narrative) %>% 
+  sample(1)
+)
+output$narrative <- renderText({
+ narrative_sample
+})
 
+## Final app:
+# Data:
+prod_codes <- setNames(products$code, products$title)
 
+ui <- fluidPage(
+ fluidRow(
+ column(8, 
+        selectInput("code", "Product", 
+                    choices = prod_codes,
+                    width = "100%"
+                    )
+        ),
+ column(2, 
+        selectInput("y", "Y axis", c("rate", "count")))
+),
+ fluidRow(
+  column(4, tableOutput("diag")),
+  column(4, tableOutput("body_part")),
+  column(4, tableOutput("location"))
+ ),
+ fluidRow(
+  column(12, plotOutput("age_sex"))
+ ),
+fluidRow(
+ column(2, 
+        actionButton("story", "Tell me a story")
+        ),
+ column(10, textOutput("narrative"))
+ )
+)
+server <- function(input, output, session) {
+ selected <- reactive({
+  injuries %>% 
+   filter(prod_code == input$code)}
+  )
+ 
+ # Count function:
+count_top <- function(df, var, n = 5) {
+  df %>%
+    mutate({{ var }} := fct_lump(fct_infreq({{ var }}), n = n)) %>%
+    group_by({{ var }}) %>%
+    summarise(n = as.integer(sum(weight)))
+}
+  output$diag <- renderTable(count_top(selected(), diag), width = "100%")
+  output$body_part <- renderTable(count_top(selected(), body_part), width = "100%")
+  output$location <- renderTable(count_top(selected(), location), width = "100%")
+ 
+ summary <- reactive({
+  selected() %>% 
+   count(age, sex, wt = weight) %>%
+   left_join(population, by = c("age", "sex")) %>%
+   mutate(rate = n.x / n.y * 1e4)
+ })
+ 
+output$age_sex <- renderPlot({
+ if (input$y == "count") {
+  summary() %>%
+   ggplot(aes(age, n.x, colour = sex)) +
+   geom_line() +
+   labs(y = "Estimated number of injuries")
+  } else {
+   summary() %>%
+    ggplot(aes(age, rate, colour = sex)) +
+    geom_line(na.rm = TRUE) +
+    labs(y = "Injuries per 100,000 people")
+   }
+ }, res = 96)
 
-
-
-
-
-
-
-
-
-
-
-
-
+  narrative_sample <- eventReactive(
+    list(input$story, selected()
+         ),
+    selected() %>% pull("narrative") %>% sample(size = 1, replace = FALSE)
+  )
+  output$narrative <- renderText(narrative_sample())
+}
